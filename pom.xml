@@ -41,7 +41,7 @@
   </parent>
 
   <artifactId>module-controller-sdl</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1-SNAPSHOT</version>
 
   <properties>
     <java.version>19</java.version>
