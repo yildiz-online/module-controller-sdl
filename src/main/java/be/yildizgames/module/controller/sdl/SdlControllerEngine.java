@@ -35,6 +35,7 @@ import be.yildizgames.module.controller.ThreadRunner;
 
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
+import java.lang.foreign.MemoryAddress;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
@@ -118,7 +119,6 @@ public class SdlControllerEngine implements ControllerEngine {
 
     @Override
     public void reopen() {
-        init();
         running = true;
     }
 
@@ -222,7 +222,12 @@ public class SdlControllerEngine implements ControllerEngine {
     }
 
     private String getControllerName(int player) {
-        return "";//this.getControllerNameFunction.invokeExact(player);
+        try {
+            return ((MemoryAddress) this.getControllerNameFunction.invokeExact(player)).getUtf8String(0);
+        } catch (Throwable e) {
+            logger.log(System.Logger.Level.ERROR, "", e);
+            return "Undefined";
+        }
     }
 
     private static class SdlController implements Controller {
