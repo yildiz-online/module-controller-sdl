@@ -119,6 +119,7 @@ public class SdlControllerEngine implements ControllerEngine {
 
     @Override
     public void reopen() {
+        init();
         running = true;
     }
 
@@ -141,8 +142,8 @@ public class SdlControllerEngine implements ControllerEngine {
                     handleController(1);
                     handleController(2);
                     handleController(3);
-                    Thread.sleep(20);
                 }
+                Thread.sleep(20);
             } catch (Throwable e) {
                 this.logger.log(System.Logger.Level.ERROR, e);
             }
