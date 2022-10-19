@@ -157,9 +157,11 @@ public class SdlControllerEngine implements ControllerEngine {
         var controllerPlugged = ((int) isControllerConnectedFunction[0].invokeExact()) > 0;
         if (controllerPlugged != controllers[0].connected) {
             controllers[0].connected = controllerPlugged;
+            if (controllerPlugged) {
+                controllers[0].model = getControllerName(0);
+            }
             controllers[0].listeners.forEach(a -> {
                 if (controllerPlugged) {
-                    controllers[0].model = getControllerName(0);
                     a.controllerConnected();
                 } else {
                     a.controllerDisconnected();
