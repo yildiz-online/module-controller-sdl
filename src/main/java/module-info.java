@@ -24,8 +24,6 @@
  *
  */
 
-import be.yildizgames.module.controller.sdl.SdlControllerEngine;
-
 /**
  * @author Grégory Van den Borre
  */
@@ -35,5 +33,5 @@ module be.yildizgames.module.controller.sdl {
 
     exports be.yildizgames.module.controller.sdl;
 
-    provides be.yildizgames.module.controller.ControllerEngine with SdlControllerEngine;
+    provides be.yildizgames.module.controller.ControllerEngine with be.yildizgames.module.controller.sdl.SdlControllerEngine;
 }
