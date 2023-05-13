@@ -32,6 +32,4 @@ module be.yildizgames.module.controller.sdl {
     requires be.yildizgames.module.controller;
 
     exports be.yildizgames.module.controller.sdl;
-
-    provides be.yildizgames.module.controller.ControllerEngine with be.yildizgames.module.controller.sdl.SdlControllerEngine;
 }

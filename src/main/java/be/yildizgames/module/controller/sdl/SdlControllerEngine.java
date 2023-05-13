@@ -36,9 +36,11 @@ import be.yildizgames.module.controller.ThreadRunner;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
 import java.lang.foreign.MemoryAddress;
+import java.lang.foreign.MemorySession;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,38 +55,20 @@ public class SdlControllerEngine implements ControllerEngine {
 
     private final int[] controllerState = new int[4];
 
-    private final MethodHandle getControllerNameFunction;
+    private final MethodHandle[] getControllerNameFunction = new MethodHandle[4];
+    private final Path lib;
+    private final Path sdl;
 
     private boolean running;
 
     private final System.Logger logger = System.getLogger(this.getClass().getName());
 
-    public SdlControllerEngine() {
+    public SdlControllerEngine(Path lib, Path sdl) {
         super();
+        this.lib = lib;
+        this.sdl = sdl;
         for (int i = 0; i < controllers.length; i++) {
             controllers[i] = new SdlController();
-        }
-
-        var symbols = SymbolLookup.loaderLookup();
-
-        this.getControllerFunctions[0] = Linker.nativeLinker().downcallHandle(symbols.lookup("update").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.getControllerFunctions[1] = Linker.nativeLinker().downcallHandle(symbols.lookup("getController2").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.getControllerFunctions[2] = Linker.nativeLinker().downcallHandle(symbols.lookup("getController3").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.getControllerFunctions[3] = Linker.nativeLinker().downcallHandle(symbols.lookup("getController4").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.isControllerConnectedFunction[0] = Linker.nativeLinker().downcallHandle(symbols.lookup("isC1Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.isControllerConnectedFunction[1] = Linker.nativeLinker().downcallHandle(symbols.lookup("isC2Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.isControllerConnectedFunction[2] = Linker.nativeLinker().downcallHandle(symbols.lookup("isC3Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.isControllerConnectedFunction[3] = Linker.nativeLinker().downcallHandle(symbols.lookup("isC4Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-        this.getControllerNameFunction = Linker.nativeLinker().downcallHandle(symbols.lookup("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
-        init();
-    }
-
-    private void init() {
-        var init = Linker.nativeLinker().downcallHandle(SymbolLookup.loaderLookup().lookup("initControls").orElseThrow(), FunctionDescriptor.ofVoid());
-        try {
-            init.invokeExact();
-        } catch (Throwable e) {
-            throw new IllegalStateException(e);
         }
     }
 
@@ -98,33 +82,32 @@ public class SdlControllerEngine implements ControllerEngine {
 
 
     @Override
-    public Controller getController1() {
+    public final Controller getController1() {
         return controllers[0];
     }
 
     @Override
-    public Controller getController2() {
+    public final Controller getController2() {
         return controllers[1];
     }
 
     @Override
-    public Controller getController3() {
+    public final Controller getController3() {
         return controllers[2];
     }
 
     @Override
-    public Controller getController4() {
+    public final Controller getController4() {
         return controllers[3];
     }
 
     @Override
     public void reopen() {
-        init();
-        running = true;
+        //Does nothing
     }
 
     @Override
-    public void close() {
+    public final void close() {
         running = false;
     }
 
@@ -134,19 +117,36 @@ public class SdlControllerEngine implements ControllerEngine {
 
     @Override
     public final void run() {
-        running = true;
-        while (true) {
-            try {
-                if (running) {
+        try (var session = MemorySession.openConfined()){
+            SymbolLookup.libraryLookup(this.sdl, session);
+            var library = SymbolLookup.libraryLookup(this.lib, session);
+            var linker = Linker.nativeLinker();
+
+            this.getControllerFunctions[0] = linker.downcallHandle(library.lookup("update").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerFunctions[1] = linker.downcallHandle(library.lookup("getController2").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerFunctions[2] = linker.downcallHandle(library.lookup("getController3").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerFunctions[3] = linker.downcallHandle(library.lookup("getController4").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[0] = linker.downcallHandle(library.lookup("isC1Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[1] = linker.downcallHandle(library.lookup("isC2Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[2] = linker.downcallHandle(library.lookup("isC3Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[3] = linker.downcallHandle(library.lookup("isC4Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerNameFunction[0] = linker.downcallHandle(library.lookup("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            linker.downcallHandle(library.lookup("initControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
+            this.running = true;
+            while (this.running) {
+                try {
                     handleController0();
                     handleController(1);
                     handleController(2);
                     handleController(3);
+                    Thread.sleep(20);
+                } catch (Throwable e) {
+                    this.logger.log(System.Logger.Level.ERROR, e);
                 }
-                Thread.sleep(20);
-            } catch (Throwable e) {
-                this.logger.log(System.Logger.Level.ERROR, e);
             }
+            Linker.nativeLinker().downcallHandle(library.lookup("terminateControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
+        } catch (Throwable e) {
+            throw new IllegalStateException(e);
         }
     }
 
@@ -226,7 +226,7 @@ public class SdlControllerEngine implements ControllerEngine {
 
     private String getControllerName(int player) {
         try {
-            return ((MemoryAddress) this.getControllerNameFunction.invokeExact(player)).getUtf8String(0);
+            return ((MemoryAddress) this.getControllerNameFunction[0].invokeExact(player)).getUtf8String(0);
         } catch (Throwable e) {
             logger.log(System.Logger.Level.ERROR, "", e);
             return "Undefined";
