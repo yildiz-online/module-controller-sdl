@@ -29,6 +29,7 @@ package be.yildizgames.module.controller.sdl;
 import be.yildizgames.module.controller.Controller;
 import be.yildizgames.module.controller.ControllerCurrentState;
 import be.yildizgames.module.controller.ControllerEngine;
+import be.yildizgames.module.controller.ControllerEngineStatusListener;
 import be.yildizgames.module.controller.ControllerListener;
 import be.yildizgames.module.controller.ControllerMapper;
 import be.yildizgames.module.controller.ThreadRunner;
@@ -48,6 +49,8 @@ import java.util.List;
  * @author Grégory Van den Borre
  */
 public class SdlControllerEngine implements ControllerEngine {
+
+    private final List<ControllerEngineStatusListener> listeners = new ArrayList<>();
 
     private final SdlController[] controllers = new SdlController[4];
     private final MethodHandle[] getControllerFunctions = new MethodHandle[4];
@@ -80,6 +83,11 @@ public class SdlControllerEngine implements ControllerEngine {
         }
     }
 
+    @Override
+    public final ControllerEngine addListener(ControllerEngineStatusListener l) {
+        this.listeners.add(l);
+        return this;
+    }
 
     @Override
     public final Controller getController1() {
@@ -133,6 +141,7 @@ public class SdlControllerEngine implements ControllerEngine {
             this.getControllerNameFunction[0] = linker.downcallHandle(library.lookup("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
             linker.downcallHandle(library.lookup("initControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
             this.running = true;
+            this.listeners.forEach(ControllerEngineStatusListener::started);
             while (this.running) {
                 try {
                     handleController0();
@@ -145,6 +154,7 @@ public class SdlControllerEngine implements ControllerEngine {
                 }
             }
             Linker.nativeLinker().downcallHandle(library.lookup("terminateControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
+            this.listeners.forEach(ControllerEngineStatusListener::closed);
         } catch (Throwable e) {
             throw new IllegalStateException(e);
         }
