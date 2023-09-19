@@ -34,10 +34,10 @@ import be.yildizgames.module.controller.ControllerListener;
 import be.yildizgames.module.controller.ControllerMapper;
 import be.yildizgames.module.controller.ThreadRunner;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
-import java.lang.foreign.MemoryAddress;
-import java.lang.foreign.MemorySession;
+import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
@@ -236,7 +236,7 @@ public class SdlControllerEngine implements ControllerEngine {
 
     private String getControllerName(int player) {
         try {
-            return ((MemoryAddress) this.getControllerNameFunction[0].invokeExact(player)).getUtf8String(0);
+            return ((MemorySegment) this.getControllerNameFunction[0].invokeExact(player)).getUtf8String(0);
         } catch (Throwable e) {
             logger.log(System.Logger.Level.ERROR, "", e);
             return "Undefined";
