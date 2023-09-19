@@ -45,6 +45,7 @@
 
   <properties>
     <maven.compiler.args>--enable-preview</maven.compiler.args>
+    <maven.plugin.javadoc.options>--enable-preview</maven.plugin.javadoc.options>
   </properties>
 
   <dependencies>
