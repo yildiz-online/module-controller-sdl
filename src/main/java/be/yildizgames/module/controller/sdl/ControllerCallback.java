@@ -52,7 +52,7 @@ public class ControllerCallback {
         try {
             var cbHandle = MethodHandles.lookup().findStatic(ControllerCallback.class, "callback", MethodType.methodType(void.class, int.class, int.class, int.class));
             var callback = Linker.nativeLinker().upcallStub(cbHandle, FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT), Arena.ofAuto());
-            var registerCallback = Linker.nativeLinker().downcallHandle(symbols.lookup("registerCallback").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
+            var registerCallback = Linker.nativeLinker().downcallHandle(symbols.find("registerCallback").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
             ;
             registerCallback.invokeExact(callback.address());
         } catch (Throwable t) {
