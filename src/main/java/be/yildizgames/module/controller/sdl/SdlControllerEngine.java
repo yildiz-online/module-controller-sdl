@@ -125,21 +125,21 @@ public class SdlControllerEngine implements ControllerEngine {
 
     @Override
     public final void run() {
-        try (var session = MemorySession.openConfined()){
+        try (var session = Arena.ofConfined()){
             SymbolLookup.libraryLookup(this.sdl, session);
             var library = SymbolLookup.libraryLookup(this.lib, session);
             var linker = Linker.nativeLinker();
 
-            this.getControllerFunctions[0] = linker.downcallHandle(library.lookup("update").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerFunctions[1] = linker.downcallHandle(library.lookup("getController2").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerFunctions[2] = linker.downcallHandle(library.lookup("getController3").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerFunctions[3] = linker.downcallHandle(library.lookup("getController4").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[0] = linker.downcallHandle(library.lookup("isC1Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[1] = linker.downcallHandle(library.lookup("isC2Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[2] = linker.downcallHandle(library.lookup("isC3Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[3] = linker.downcallHandle(library.lookup("isC4Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerNameFunction[0] = linker.downcallHandle(library.lookup("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
-            linker.downcallHandle(library.lookup("initControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
+            this.getControllerFunctions[0] = linker.downcallHandle(library.find("update").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerFunctions[1] = linker.downcallHandle(library.find("getController2").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerFunctions[2] = linker.downcallHandle(library.find("getController3").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerFunctions[3] = linker.downcallHandle(library.find("getController4").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[0] = linker.downcallHandle(library.find("isC1Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[1] = linker.downcallHandle(library.find("isC2Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[2] = linker.downcallHandle(library.find("isC3Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.isControllerConnectedFunction[3] = linker.downcallHandle(library.find("isC4Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllerNameFunction[0] = linker.downcallHandle(library.find("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            linker.downcallHandle(library.find("initControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
             this.running = true;
             this.listeners.forEach(ControllerEngineStatusListener::started);
             while (this.running) {
@@ -153,7 +153,7 @@ public class SdlControllerEngine implements ControllerEngine {
                     this.logger.log(System.Logger.Level.ERROR, e);
                 }
             }
-            Linker.nativeLinker().downcallHandle(library.lookup("terminateControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
+            Linker.nativeLinker().downcallHandle(library.find("terminateControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
             this.listeners.forEach(ControllerEngineStatusListener::closed);
         } catch (Throwable e) {
             throw new IllegalStateException(e);
