@@ -26,9 +26,9 @@
 
 package be.yildizgames.module.controller.sdl;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
@@ -51,7 +51,7 @@ public class ControllerCallback {
         engine = e;
         try {
             var cbHandle = MethodHandles.lookup().findStatic(ControllerCallback.class, "callback", MethodType.methodType(void.class, int.class, int.class, int.class));
-            var callback = Linker.nativeLinker().upcallStub(cbHandle, FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT), Arena.ofImplicit());
+            var callback = Linker.nativeLinker().upcallStub(cbHandle, FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT), SegmentAllocator.implicitAllocator());
             var registerCallback = Linker.nativeLinker().downcallHandle(symbols.lookup("registerCallback").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
             ;
             registerCallback.invokeExact(callback.address());
