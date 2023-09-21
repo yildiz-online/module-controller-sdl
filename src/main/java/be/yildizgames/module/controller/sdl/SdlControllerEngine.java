@@ -238,7 +238,7 @@ public class SdlControllerEngine implements ControllerEngine {
 
     private String getControllerName(int player) {
         try {
-            return ((MemorySegment) this.getControllerNameFunction[0].invokeExact(player)).getUtf8String(0);
+            return ((MemorySegment) this.getControllerNameFunction[0].invokeExact(player)).reinterpret(128).getUtf8String(0);
         } catch (Throwable e) {
             logger.log(System.Logger.Level.ERROR, "", e);
             return "Undefined";
