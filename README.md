@@ -52,7 +52,7 @@ In your maven project, add the dependency
 
 <dependency>
   <groupId>be.yildiz-games</groupId>
-  <artifactId>module-controller-jampad</artifactId>
+  <artifactId>module-controller-sdl</artifactId>
   <version>${version}</version>
 </dependency>
 ```
