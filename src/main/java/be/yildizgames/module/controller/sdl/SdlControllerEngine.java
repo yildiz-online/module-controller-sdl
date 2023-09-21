@@ -36,19 +36,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * SDL implementation for the controller engine, before using this implementation it is necessary to load the native
+ * libraries that are passed in the controller with System.load, sdl first, then libcontroller-sdl.
+ * In Windows, the mingw runtime are also necessary before anything, first libgcc_s_seh-1.dll, then libstdc++-6.dll.
+ *
  * @author Grégory Van den Borre
  */
 public class SdlControllerEngine implements ControllerEngine {
 
+    /**
+     * Maximum of controllers to support.
+     */
+    private static final int MAX_CONTROLLERS = 4;
+
+    /**
+     * Listeners that will be notified for every change in the engine status.
+     */
     private final List<ControllerEngineStatusListener> listeners = new ArrayList<>();
 
-    private final SdlController[] controllers = new SdlController[4];
-    private final MethodHandle[] getControllerFunctions = new MethodHandle[4];
-    private final MethodHandle[] isControllerConnectedFunction = new MethodHandle[4];
+    private final SdlController[] controllers = new SdlController[MAX_CONTROLLERS];
+    private final MethodHandle[] getControllerFunctions = new MethodHandle[MAX_CONTROLLERS];
+    private final MethodHandle[] isControllerConnectedFunction = new MethodHandle[MAX_CONTROLLERS];
 
-    private final int[] controllerState = new int[4];
+    private final int[] controllerState = new int[MAX_CONTROLLERS];
 
-    private final MethodHandle[] getControllerNameFunction = new MethodHandle[4];
+    private final MethodHandle[] getControllerNameFunction = new MethodHandle[MAX_CONTROLLERS];
     private final Path lib;
     private final Path sdl;
 
