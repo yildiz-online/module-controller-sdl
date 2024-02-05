@@ -187,7 +187,7 @@ public class SdlControllerEngine implements ControllerEngine {
                 int xor = c ^ previousState;
                 int pressed = c & xor;
                 int released = previousState & xor;
-                for (int i = 0; i < 16; i++) {
+                for (int i = 0; i < 32; i++) {
                     if ((pressed & (1L << i)) != 0) {
                         controllers[0].pressed(i);
                     }
@@ -223,7 +223,7 @@ public class SdlControllerEngine implements ControllerEngine {
                 int xor = c ^ previousState;
                 int pressed = c & xor;
                 int released = previousState & xor;
-                for (int i = 0; i < 16; i++) {
+                for (int i = 0; i < 32; i++) {
                     if ((pressed & (1L << i)) != 0) {
                         controllers[index].pressed(i);
                     }
@@ -317,6 +317,8 @@ public class SdlControllerEngine implements ControllerEngine {
                 case 14 -> this.listeners.forEach(ControllerListener::controllerPressRight);
                 case 12 -> this.listeners.forEach(ControllerListener::controllerPressDown);
                 case 13 -> this.listeners.forEach(ControllerListener::controllerPressLeft);
+                case 24 -> this.listeners.forEach(ControllerListener::controllerPressL2);
+                case 25 -> this.listeners.forEach(ControllerListener::controllerPressR2);
                 default -> this.logger.log(System.Logger.Level.WARNING, "Unknown pressed " + button);
             }
         }
@@ -335,6 +337,8 @@ public class SdlControllerEngine implements ControllerEngine {
                 case 14 -> this.listeners.forEach(ControllerListener::controllerReleaseRight);
                 case 12 -> this.listeners.forEach(ControllerListener::controllerReleaseDown);
                 case 13 -> this.listeners.forEach(ControllerListener::controllerReleaseLeft);
+                case 24 -> this.listeners.forEach(ControllerListener::controllerReleaseL2);
+                case 25 -> this.listeners.forEach(ControllerListener::controllerReleaseR2);
                 default -> this.logger.log(System.Logger.Level.WARNING, "Unknown released " + button);
             }
         }
