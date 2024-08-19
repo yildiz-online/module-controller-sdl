@@ -21,8 +21,6 @@ import be.yildizgames.module.controller.ControllerCurrentState;
 import be.yildizgames.module.controller.ControllerEngine;
 import be.yildizgames.module.controller.ControllerEngineStatusListener;
 import be.yildizgames.module.controller.ControllerListener;
-import be.yildizgames.module.controller.ControllerMapper;
-import be.yildizgames.module.controller.ThreadRunner;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
@@ -33,7 +31,10 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * SDL implementation for the controller engine, before using this implementation it is necessary to load the native
@@ -44,71 +45,124 @@ import java.util.List;
  */
 public class SdlControllerEngine implements ControllerEngine {
 
-    /**
-     * Maximum of controllers to support.
-     */
-    private static final int MAX_CONTROLLERS = 4;
+    public static final int SDL_BUTTON_1 = 0;
+    public static final int SDL_BUTTON_2 = 1;
+    public static final int SDL_BUTTON_3 = 2;
+    public static final int SDL_BUTTON_4 = 3;
+    public static final int SDL_BUTTON_L1 = 9;
+    public static final int SDL_BUTTON_R1 = 10;
+    public static final int SDL_BUTTON_SELECT = 4;
+    public static final int SDL_BUTTON_START = 6;
+    public static final int SDL_BUTTON_L2 = 24;
+    public static final int SDL_BUTTON_R2 = 25;
+    public static final int SDL_DPAD_UP = 11;
+    public static final int SDL_DPAD_RIGHT = 14;
+    public static final int SDL_DPAD_DOWN = 12;
+    public static final int SDL_DPAD_LEFT = 13;
+    private final System.Logger logger = System.getLogger(this.getClass().getName());
 
     /**
      * Listeners that will be notified for every change in the engine status.
      */
-    private final List<ControllerEngineStatusListener> listeners = new ArrayList<>();
+    private final Collection<ControllerEngineStatusListener> engineStatusListeners = new ArrayList<>();
 
-    private final SdlController[] controllers = new SdlController[MAX_CONTROLLERS];
-    private final MethodHandle[] getControllerFunctions = new MethodHandle[MAX_CONTROLLERS];
-    private final MethodHandle[] isControllerConnectedFunction = new MethodHandle[MAX_CONTROLLERS];
+    private final Collection<ControllerListener> controllerListeners = new ArrayList<>();
 
-    private final int[] controllerState = new int[MAX_CONTROLLERS];
+    private final Map<Integer, SdlController> controllers = new HashMap<>();
 
-    private final MethodHandle[] getControllerNameFunction = new MethodHandle[MAX_CONTROLLERS];
+    private MethodHandle updateControllerStatesFunction;
+
+    private MethodHandle getControllerStateFunction;
+
+    private MethodHandle getControllerNameFunction;
+
+    private MethodHandle isControllerListChangedFunction;
+
+    private MethodHandle getControllersFunction;
+
+    private MethodHandle getControllerSizeFunction;
+
     private final Path lib;
+
     private final Path sdl;
 
     private boolean running;
 
-    private final System.Logger logger = System.getLogger(this.getClass().getName());
-
+    /**
+     * Create an instance of the engine by providing the path of the necessary native libraries.
+     * If the operating system is windows, it is expected to have loaded the mingw runtime libraries
+     * before running the engine.
+     * @param lib Path of the native library.
+     * @param sdl Path of the SDL library.
+     */
     public SdlControllerEngine(Path lib, Path sdl) {
         super();
         this.lib = lib;
         this.sdl = sdl;
-        for (int i = 0; i < controllers.length; i++) {
-            controllers[i] = new SdlController();
-        }
     }
 
-    void controllerEvent(int controller, int button, boolean state) {
-        if (state) {
-            controllers[controller].pressed(button);
+    public static void main(String[] args) {
+        System.setProperty("NATIVE_CONTROLLER_PATH", "D:\\dev\\prj\\retro\\player\\data\\local\\native");
+        System.load("D:\\dev\\prj\\retro\\player\\data\\local\\native\\libgcc_s_seh-1.dll");
+        System.load("D:\\dev\\prj\\retro\\player\\data\\local\\native\\libstdc++-6.dll");
+        var engine = new SdlControllerEngine();
+        engine.addControllerListener(new ControllerListener() {
+                    @Override
+                    public void controllerConnected(Controller info) {
+                        System.out.println("Controller connected C");
+                        System.out.println(info.model());
+                    }
+
+                    @Override
+                    public void controllerPressR1(Controller info) {
+                        System.out.println(info.model() + " R1");
+                        if(info.currentState().isButton1Pressed()) {
+                            System.out.println(1);
+                        }
+                        if(info.currentState().isButtonL1Pressed()) {
+                            System.out.println("L1");
+                        }
+                    }
+
+                    @Override
+                    public void controllerPress1(Controller info) {
+                        System.out.println(info.model() + " 1");
+                    }
+            });
+        engine.run();
+    }
+
+    public SdlControllerEngine() {
+        var env_name = "NATIVE_CONTROLLER_PATH";
+        var path = System.getProperty(env_name);
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Environment variable " + env_name + " is not set or empty, " +
+                    "please provide the directory for SDL and libmodule-controller-sdl dynamic libraries.");
+        }
+        var libDirectory = Path.of(path).toAbsolutePath();
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            this.lib = libDirectory.resolve("libcontroller-sdl.dll");
+            this.sdl = libDirectory.resolve("SDL2.dll");
         } else {
-            controllers[controller].released(button);
+            this.lib = libDirectory.resolve("libcontroller-sdl.so");
+            this.sdl = libDirectory.resolve("libsdl.so");
         }
     }
 
     @Override
-    public final ControllerEngine addListener(ControllerEngineStatusListener l) {
-        this.listeners.add(l);
+    public final ControllerEngine addEngineStatusListener(ControllerEngineStatusListener l) {
+        this.engineStatusListeners.add(l);
         return this;
     }
 
     @Override
-    public final Controller getController1() {
-        return controllers[0];
+    public final void addControllerListener(ControllerListener l) {
+        this.controllerListeners.add(l);
     }
 
     @Override
-    public final Controller getController2() {
-        return controllers[1];
-    }
-
-    @Override
-    public final Controller getController3() {
-        return controllers[2];
-    }
-
-    @Override
-    public final Controller getController4() {
-        return controllers[3];
+    public final Collection<? extends Controller> getControllers() {
+        return this.controllers.values();
     }
 
     @Override
@@ -121,124 +175,133 @@ public class SdlControllerEngine implements ControllerEngine {
         running = false;
     }
 
-    void controllerConnected(int controller, boolean state) {
-        controllers[controller].connected = state;
-    }
-
     @Override
     public final void run() {
-        try (var session = Arena.ofConfined()){
+        try (var session = Arena.ofConfined()) {
             SymbolLookup.libraryLookup(this.sdl, session);
             var library = SymbolLookup.libraryLookup(this.lib, session);
             var linker = Linker.nativeLinker();
 
-            this.getControllerFunctions[0] = linker.downcallHandle(library.find("update").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerFunctions[1] = linker.downcallHandle(library.find("getController2").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerFunctions[2] = linker.downcallHandle(library.find("getController3").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerFunctions[3] = linker.downcallHandle(library.find("getController4").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[0] = linker.downcallHandle(library.find("isC1Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[1] = linker.downcallHandle(library.find("isC2Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[2] = linker.downcallHandle(library.find("isC3Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.isControllerConnectedFunction[3] = linker.downcallHandle(library.find("isC4Plugged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
-            this.getControllerNameFunction[0] = linker.downcallHandle(library.find("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            this.updateControllerStatesFunction = linker.downcallHandle(library.find("update").orElseThrow(), FunctionDescriptor.ofVoid());
+            this.getControllerStateFunction = linker.downcallHandle(library.find("getControllerState").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
+            this.getControllerNameFunction = linker.downcallHandle(library.find("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            this.isControllerListChangedFunction = linker.downcallHandle(library.find("isControllerListChanged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN));
+            this.getControllerSizeFunction = linker.downcallHandle(library.find("getControllerNumber").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
+            this.getControllersFunction = linker.downcallHandle(library.find("getControllers").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS));
             linker.downcallHandle(library.find("initControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
             this.running = true;
-            this.listeners.forEach(ControllerEngineStatusListener::started);
-            while (this.running) {
-                try {
-                    handleController0();
-                    handleController(1);
-                    handleController(2);
-                    handleController(3);
-                    Thread.sleep(20);
-                } catch (Throwable e) {
-                    this.logger.log(System.Logger.Level.ERROR, e);
-                }
-            }
+            this.engineStatusListeners.forEach(ControllerEngineStatusListener::started);
+            this.runLoop();
             Linker.nativeLinker().downcallHandle(library.find("terminateControls").orElseThrow(), FunctionDescriptor.ofVoid()).invokeExact();
-            this.listeners.forEach(ControllerEngineStatusListener::closed);
+            this.engineStatusListeners.forEach(ControllerEngineStatusListener::closed);
         } catch (Throwable e) {
             throw new IllegalStateException(e);
         }
     }
 
-    private void handleController0() throws Throwable {
-        if (!controllers[0].used) {
-            return;
-        }
-        var c = (int) getControllerFunctions[0].invokeExact();
-        var controllerPlugged = ((int) isControllerConnectedFunction[0].invokeExact()) > 0;
-        if (controllerPlugged != controllers[0].connected) {
-            controllers[0].connected = controllerPlugged;
-            if (controllerPlugged) {
-                controllers[0].model = getControllerName(0);
-            }
-            controllers[0].listeners.forEach(a -> {
-                if (controllerPlugged) {
-                    a.controllerConnected();
-                } else {
-                    a.controllerDisconnected();
-                }
-            });
-        }
-        if (controllerPlugged) {
-            int previousState = this.controllerState[0];
-            if (c != previousState) {
-                int xor = c ^ previousState;
-                int pressed = c & xor;
-                int released = previousState & xor;
-                for (int i = 0; i < 32; i++) {
-                    if ((pressed & (1L << i)) != 0) {
-                        controllers[0].pressed(i);
+    private void runLoop() {
+        while (this.running) {
+            try {
+                this.updateControllerStatesFunction.invokeExact();
+                var hasChanged = (boolean) this.isControllerListChangedFunction.invokeExact();
+                if (hasChanged) {
+                    var size = (int) this.getControllerSizeFunction.invokeExact();
+                    var arrayPtr = (MemorySegment) this.getControllersFunction.invokeExact();
+                    var ids = Arrays.stream(arrayPtr.reinterpret(ValueLayout.JAVA_INT.byteSize() * size).toArray(ValueLayout.JAVA_INT)).boxed().toList();
+                    for (var id : ids) {
+                        if (!this.controllers.containsKey(id)) {
+                            var controller = new SdlController(getControllerName(id), id);
+                            this.controllers.put(id, controller);
+                            this.controllerListeners.forEach(l -> l.controllerConnected(controller));
+                        }
                     }
-                    if ((released & (1L << i)) != 0) {
-                        controllers[0].released(i);
+                    var toRemove = new ArrayList<Integer>();
+                    for(var connectedId : this.controllers.keySet()) {
+                        if(!ids.contains(connectedId)) {
+                            toRemove.add(connectedId);
+                            var controller = this.controllers.get(connectedId);
+                            this.controllerListeners.forEach(l -> l.controllerDisconnected(controller));
+                        }
+                    }
+                    for(var itemToRemove : toRemove) {
+                        this.controllers.remove(itemToRemove);
                     }
                 }
-                this.controllerState[0] = c;
+                this.controllers.keySet().forEach(this::handleController);
+                Thread.sleep(20);
+            } catch (Throwable e) {
+                this.logger.log(System.Logger.Level.ERROR, "", e);
             }
         }
     }
 
-    private void handleController(int index) throws Throwable {
-        if (!controllers[index].used) {
-            return;
-        }
-        var controllerPlugged = ((int) isControllerConnectedFunction[index].invokeExact()) > 0;
-        if (controllerPlugged != controllers[index].connected) {
-            controllers[index].connected = controllerPlugged;
-            controllers[index].listeners.forEach(a -> {
-                if (controllerPlugged) {
-                    controllers[index].model = getControllerName(index);
-                    a.controllerConnected();
-                } else {
-                    a.controllerDisconnected();
-                }
-            });
-        }
-        if (controllerPlugged) {
-            int previousState = this.controllerState[index];
-            var c = (int) getControllerFunctions[index].invokeExact();
-            if (c != previousState) {
-                int xor = c ^ previousState;
-                int pressed = c & xor;
-                int released = previousState & xor;
-                for (int i = 0; i < 32; i++) {
-                    if ((pressed & (1L << i)) != 0) {
-                        controllers[index].pressed(i);
-                    }
-                    if ((released & (1L << i)) != 0) {
-                        controllers[index].released(i);
-                    }
-                }
-                this.controllerState[index] = c;
-            }
-        }
-    }
-
-    private String getControllerName(int player) {
+    private void handleController(int controllerId) {
         try {
-            return ((MemorySegment) this.getControllerNameFunction[0].invokeExact(player)).reinterpret(128).getString(0);
+            var controller = this.controllers.get(controllerId);
+            var newState = (int) this.getControllerStateFunction.invokeExact(controllerId);
+            int previousState = controller.currentState.state;
+            controller.currentState.state = newState;
+            if (newState != previousState) {
+                int xor = newState ^ previousState;
+                int pressed = newState & xor;
+                int released = previousState & xor;
+                for (int i = 0; i < 32; i++) {
+                    if ((pressed & (1L << i)) != 0) {
+                        pressed(i, controller);
+                    }
+                    if ((released & (1L << i)) != 0) {
+                        released(i,controller);
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            this.logger.log(System.Logger.Level.ERROR, "", e);
+        }
+    }
+
+    private void pressed(int button, Controller controller) {
+        switch (button) {
+            case SDL_BUTTON_1 -> this.controllerListeners.forEach(l -> l.controllerPress1(controller));
+            case SDL_BUTTON_2 -> this.controllerListeners.forEach(l -> l.controllerPress2(controller));
+            case SDL_BUTTON_3 -> this.controllerListeners.forEach(l -> l.controllerPress3(controller));
+            case SDL_BUTTON_4 -> this.controllerListeners.forEach(l -> l.controllerPress4(controller));
+            case SDL_BUTTON_L1 -> this.controllerListeners.forEach(l -> l.controllerPressL1(controller));
+            case SDL_BUTTON_R1 -> this.controllerListeners.forEach(l -> l.controllerPressR1(controller));
+            case SDL_BUTTON_SELECT -> this.controllerListeners.forEach(l -> l.controllerPressSelect(controller));
+            case SDL_BUTTON_START -> this.controllerListeners.forEach(l -> l.controllerPressStart(controller));
+            case SDL_DPAD_UP -> this.controllerListeners.forEach(l -> l.controllerPressUp(controller));
+            case SDL_DPAD_RIGHT -> this.controllerListeners.forEach(l -> l.controllerPressRight(controller));
+            case SDL_DPAD_DOWN -> this.controllerListeners.forEach(l -> l.controllerPressDown(controller));
+            case SDL_DPAD_LEFT -> this.controllerListeners.forEach(l -> l.controllerPressLeft(controller));
+            case SDL_BUTTON_L2 -> this.controllerListeners.forEach(l -> l.controllerPressL2(controller));
+            case SDL_BUTTON_R2 -> this.controllerListeners.forEach(l -> l.controllerPressR2(controller));
+            default -> this.logger.log(System.Logger.Level.WARNING, "Unknown pressed " + button);
+        }
+    }
+
+    private void released(int button, Controller controller) {
+        switch (button) {
+            case SDL_BUTTON_1 -> this.controllerListeners.forEach(l -> l.controllerRelease1(controller));
+            case SDL_BUTTON_2 -> this.controllerListeners.forEach(l -> l.controllerRelease2(controller));
+            case SDL_BUTTON_3 -> this.controllerListeners.forEach(l -> l.controllerRelease3(controller));
+            case SDL_BUTTON_4 -> this.controllerListeners.forEach(l -> l.controllerRelease4(controller));
+            case SDL_BUTTON_L1 -> this.controllerListeners.forEach(l -> l.controllerReleaseL1(controller));
+            case SDL_BUTTON_R1 -> this.controllerListeners.forEach(l -> l.controllerReleaseR1(controller));
+            case SDL_BUTTON_SELECT -> this.controllerListeners.forEach(l -> l.controllerReleaseSelect(controller));
+            case SDL_BUTTON_START -> this.controllerListeners.forEach(l -> l.controllerReleaseStart(controller));
+            case SDL_DPAD_UP -> this.controllerListeners.forEach(l -> l.controllerReleaseUp(controller));
+            case SDL_DPAD_RIGHT -> this.controllerListeners.forEach(l -> l.controllerReleaseRight(controller));
+            case SDL_DPAD_DOWN -> this.controllerListeners.forEach(l -> l.controllerReleaseDown(controller));
+            case SDL_DPAD_LEFT -> this.controllerListeners.forEach(l -> l.controllerReleaseLeft(controller));
+            case SDL_BUTTON_L2 -> this.controllerListeners.forEach(l -> l.controllerReleaseL2(controller));
+            case SDL_BUTTON_R2 -> this.controllerListeners.forEach(l -> l.controllerReleaseR2(controller));
+            default -> this.logger.log(System.Logger.Level.WARNING, "Unknown released " + button);
+        }
+    }
+
+    private String getControllerName(int playerId) {
+        try {
+            return ((MemorySegment) this.getControllerNameFunction.invokeExact(playerId)).reinterpret(128).getString(0);
         } catch (Throwable e) {
             logger.log(System.Logger.Level.ERROR, "", e);
             return "Undefined";
@@ -247,101 +310,106 @@ public class SdlControllerEngine implements ControllerEngine {
 
     private static class SdlController implements Controller {
 
-        private final System.Logger logger = System.getLogger(this.getClass().getName());
+        private final String model;
 
-        private final List<ControllerListener> listeners = new ArrayList<>();
+        private final int id;
 
-        private boolean connected;
+        private final SdlControllerCurrentState currentState = new SdlControllerCurrentState();
 
-        private boolean used;
-
-        private String model = "Undefined";
-
-        @Override
-        public ControllerCurrentState getState() {
-            return null;
+        private SdlController(String controllerName, int controllerId) {
+            super();
+            this.model = controllerName;
+            this.id = controllerId;
         }
 
         @Override
-        public void addListener(ControllerListener l) {
-            this.listeners.add(l);
-        }
-
-        @Override
-        public void use() {
-            this.used = true;
-        }
-
-        @Override
-        public void stop() {
-            this.used = false;
-        }
-
-        @Override
-        public void use(ThreadRunner runner) {
-            this.used = true;
-        }
-
-        @Override
-        public void map(ControllerMapper mapper) {
-
-        }
-
-        @Override
-        public boolean isUsed() {
-            return this.used;
-        }
-
-        @Override
-        public boolean isConnected() {
-            return this.connected;
-        }
-
-        @Override
-        public String getModel() {
+        public String model() {
             return this.model;
         }
 
-
-        private void pressed(int button) {
-            switch (button) {
-                case 0 -> this.listeners.forEach(ControllerListener::controllerPress1);
-                case 1 -> this.listeners.forEach(ControllerListener::controllerPress2);
-                case 2 -> this.listeners.forEach(ControllerListener::controllerPress3);
-                case 3 -> this.listeners.forEach(ControllerListener::controllerPress4);
-                case 9 -> this.listeners.forEach(ControllerListener::controllerPressL1);
-                case 10 -> this.listeners.forEach(ControllerListener::controllerPressR1);
-                case 4 -> this.listeners.forEach(ControllerListener::controllerPressSelect);
-                case 6 -> this.listeners.forEach(ControllerListener::controllerPressStart);
-                case 11 -> this.listeners.forEach(ControllerListener::controllerPressUp);
-                case 14 -> this.listeners.forEach(ControllerListener::controllerPressRight);
-                case 12 -> this.listeners.forEach(ControllerListener::controllerPressDown);
-                case 13 -> this.listeners.forEach(ControllerListener::controllerPressLeft);
-                case 24 -> this.listeners.forEach(ControllerListener::controllerPressL2);
-                case 25 -> this.listeners.forEach(ControllerListener::controllerPressR2);
-                default -> this.logger.log(System.Logger.Level.WARNING, "Unknown pressed " + button);
-            }
+        @Override
+        public int id() {
+            return this.id;
         }
 
-        private void released(int button) {
-            switch (button) {
-                case 0 -> this.listeners.forEach(ControllerListener::controllerRelease1);
-                case 1 -> this.listeners.forEach(ControllerListener::controllerRelease2);
-                case 2 -> this.listeners.forEach(ControllerListener::controllerRelease3);
-                case 3 -> this.listeners.forEach(ControllerListener::controllerRelease4);
-                case 9 -> this.listeners.forEach(ControllerListener::controllerReleaseL1);
-                case 10 -> this.listeners.forEach(ControllerListener::controllerReleaseR1);
-                case 4 -> this.listeners.forEach(ControllerListener::controllerReleaseSelect);
-                case 6 -> this.listeners.forEach(ControllerListener::controllerReleaseStart);
-                case 11 -> this.listeners.forEach(ControllerListener::controllerReleaseUp);
-                case 14 -> this.listeners.forEach(ControllerListener::controllerReleaseRight);
-                case 12 -> this.listeners.forEach(ControllerListener::controllerReleaseDown);
-                case 13 -> this.listeners.forEach(ControllerListener::controllerReleaseLeft);
-                case 24 -> this.listeners.forEach(ControllerListener::controllerReleaseL2);
-                case 25 -> this.listeners.forEach(ControllerListener::controllerReleaseR2);
-                default -> this.logger.log(System.Logger.Level.WARNING, "Unknown released " + button);
-            }
+        @Override
+        public ControllerCurrentState currentState() {
+            return this.currentState;
+        }
+    }
+
+    private static class SdlControllerCurrentState implements ControllerCurrentState {
+
+        private int state = 0;
+
+        @Override
+        public boolean isButton1Pressed() {
+            return (state & (1L << SDL_BUTTON_1)) > 0;
         }
 
+        @Override
+        public boolean isButton2Pressed() {
+            return (state & (1L << SDL_BUTTON_2)) > 0;
+        }
+
+        @Override
+        public boolean isButton3Pressed() {
+            return (state & (1L << SDL_BUTTON_3)) > 0;
+        }
+
+        @Override
+        public boolean isButton4Pressed() {
+            return (state & (1L << SDL_BUTTON_4)) > 0;
+        }
+
+        @Override
+        public boolean isButtonL1Pressed() {
+            return (state & (1L << SDL_BUTTON_L1)) > 0;
+        }
+
+        @Override
+        public boolean isButtonL2Pressed() {
+            return (state & (1L << SDL_BUTTON_L2)) > 0;
+        }
+
+        @Override
+        public boolean isButtonR1Pressed() {
+            return (state & (1L << SDL_BUTTON_R1)) > 0;
+        }
+
+        @Override
+        public boolean isButtonR2Pressed() {
+            return (state & (1L << SDL_BUTTON_R2)) > 0;
+        }
+
+        @Override
+        public boolean isButtonStartPressed() {
+            return (state & (1L << SDL_BUTTON_START)) > 0;
+        }
+
+        @Override
+        public boolean isButtonSelectPressed() {
+            return (state & (1L << SDL_BUTTON_SELECT)) > 0;
+        }
+
+        @Override
+        public boolean isPadUpPressed() {
+            return (state & (1L << SDL_DPAD_UP)) > 0;
+        }
+
+        @Override
+        public boolean isPadDownPressed() {
+            return (state & (1L << SDL_DPAD_RIGHT)) > 0;
+        }
+
+        @Override
+        public boolean isPadLeftPressed() {
+            return (state & (1L << SDL_DPAD_DOWN)) > 0;
+        }
+
+        @Override
+        public boolean isPadRightPressed() {
+            return (state & (1L << SDL_DPAD_RIGHT)) > 0;
+        }
     }
 }
