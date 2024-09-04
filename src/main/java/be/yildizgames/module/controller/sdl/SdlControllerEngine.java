@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -99,37 +100,6 @@ public class SdlControllerEngine implements ControllerEngine {
         super();
         this.lib = lib;
         this.sdl = sdl;
-    }
-
-    public static void main(String[] args) {
-        System.setProperty("NATIVE_CONTROLLER_PATH", "D:\\dev\\prj\\retro\\player\\data\\local\\native");
-        System.load("D:\\dev\\prj\\retro\\player\\data\\local\\native\\libgcc_s_seh-1.dll");
-        System.load("D:\\dev\\prj\\retro\\player\\data\\local\\native\\libstdc++-6.dll");
-        var engine = new SdlControllerEngine();
-        engine.addControllerListener(new ControllerListener() {
-                    @Override
-                    public void controllerConnected(Controller info) {
-                        System.out.println("Controller connected C");
-                        System.out.println(info.model());
-                    }
-
-                    @Override
-                    public void controllerPressR1(Controller info) {
-                        System.out.println(info.model() + " R1");
-                        if(info.currentState().isButton1Pressed()) {
-                            System.out.println(1);
-                        }
-                        if(info.currentState().isButtonL1Pressed()) {
-                            System.out.println("L1");
-                        }
-                    }
-
-                    @Override
-                    public void controllerPress1(Controller info) {
-                        System.out.println(info.model() + " 1");
-                    }
-            });
-        engine.run();
     }
 
     public SdlControllerEngine() {
@@ -219,12 +189,14 @@ public class SdlControllerEngine implements ControllerEngine {
                     for(var connectedId : this.controllers.keySet()) {
                         if(!ids.contains(connectedId)) {
                             toRemove.add(connectedId);
-                            var controller = this.controllers.get(connectedId);
-                            this.controllerListeners.forEach(l -> l.controllerDisconnected(controller));
                         }
                     }
+                    List<Controller> removed = new ArrayList<>();
                     for(var itemToRemove : toRemove) {
-                        this.controllers.remove(itemToRemove);
+                        removed.add(this.controllers.remove(itemToRemove));
+                    }
+                    for(var controller : removed) {
+                        this.controllerListeners.forEach(l -> l.controllerDisconnected(controller));
                     }
                 }
                 this.controllers.keySet().forEach(this::handleController);
