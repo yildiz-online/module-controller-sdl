@@ -29,6 +29,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -118,6 +119,9 @@ public class SdlControllerEngine implements ControllerEngine {
         } else {
             this.lib = libDirectory.resolve("libcontroller-sdl.so");
             this.sdl = libDirectory.resolve("libsdl.so");
+        }
+        if (Files.notExists(this.lib)) {
+            throw new IllegalArgumentException("File " + this.lib.toAbsolutePath() + " does not exists");
         }
     }
 
