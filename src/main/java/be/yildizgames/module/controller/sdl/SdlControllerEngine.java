@@ -77,6 +77,8 @@ public class SdlControllerEngine implements ControllerEngine {
 
     private MethodHandle getControllerNameFunction;
 
+    private MethodHandle getControllerGuidFunction;
+
     private MethodHandle isControllerListChangedFunction;
 
     private MethodHandle getControllersFunction;
@@ -155,6 +157,7 @@ public class SdlControllerEngine implements ControllerEngine {
             this.updateControllerStatesFunction = linker.downcallHandle(library.find("update").orElseThrow(), FunctionDescriptor.ofVoid());
             this.getControllerStateFunction = linker.downcallHandle(library.find("getControllerState").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT));
             this.getControllerNameFunction = linker.downcallHandle(library.find("getControllerName").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+            this.getControllerGuidFunction = linker.downcallHandle(library.find("getControllerGuid").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
             this.isControllerListChangedFunction = linker.downcallHandle(library.find("isControllerListChanged").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN));
             this.getControllerSizeFunction = linker.downcallHandle(library.find("getControllerNumber").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_INT));
             this.getControllersFunction = linker.downcallHandle(library.find("getControllers").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS));
@@ -180,7 +183,7 @@ public class SdlControllerEngine implements ControllerEngine {
                     var ids = Arrays.stream(arrayPtr.reinterpret(ValueLayout.JAVA_INT.byteSize() * size).toArray(ValueLayout.JAVA_INT)).boxed().toList();
                     for (var id : ids) {
                         if (!this.controllers.containsKey(id)) {
-                            var controller = new SdlController(getControllerName(id), id);
+                            var controller = new SdlController(getControllerName(id),getControllerGuid(id), id);
                             this.controllers.put(id, controller);
                             this.controllerListeners.forEach(l -> l.controllerConnected(controller));
                         }
@@ -280,23 +283,40 @@ public class SdlControllerEngine implements ControllerEngine {
         }
     }
 
+    private String getControllerGuid(int playerId) {
+        try {
+            return ((MemorySegment) this.getControllerGuidFunction.invokeExact(playerId)).reinterpret(128).getString(0);
+        } catch (Throwable e) {
+            logger.log(System.Logger.Level.ERROR, "", e);
+            return "Undefined";
+        }
+    }
+
     private static class SdlController implements Controller {
 
         private final String model;
+
+        private final String guid;
 
         private final int id;
 
         private final SdlControllerCurrentState currentState = new SdlControllerCurrentState();
 
-        private SdlController(String controllerName, int controllerId) {
+        private SdlController(String controllerName, String controllerGuid, int controllerId) {
             super();
             this.model = controllerName;
+            this.guid = controllerGuid;
             this.id = controllerId;
         }
 
         @Override
         public String model() {
             return this.model;
+        }
+
+        @Override
+        public String guid() {
+            return this.guid;
         }
 
         @Override
