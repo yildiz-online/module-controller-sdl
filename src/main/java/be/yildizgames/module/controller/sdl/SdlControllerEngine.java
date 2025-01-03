@@ -187,7 +187,14 @@ public class SdlControllerEngine implements ControllerEngine {
                     var ids = Arrays.stream(arrayPtr.reinterpret(ValueLayout.JAVA_INT.byteSize() * size).toArray(ValueLayout.JAVA_INT)).boxed().toList();
                     for (var id : ids) {
                         if (!this.controllers.containsKey(id)) {
-                            var controller = new SdlController(getControllerName(id),getControllerGuid(id), id);
+                            var guid = getControllerGuid(id);
+                            String name;
+                            if("030044f05e040000e002000000007200".equals(guid)) {
+                                name = "8BitDo Arcade Stick Switch";
+                            } else {
+                                name = getControllerName(id);
+                            }
+                            var controller = new SdlController(name, guid, id);
                             this.controllers.put(id, controller);
                             this.controllerListeners.forEach(l -> l.controllerConnected(controller));
                         }
