@@ -39,7 +39,7 @@
   </parent>
 
   <artifactId>module-controller-sdl</artifactId>
-  <version>2.1.2-SNAPSHOT</version>
+  <version>2.1.2</version>
 
   <properties>
     <java.version>23</java.version>
