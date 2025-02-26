@@ -115,7 +115,7 @@ public class SdlControllerEngine implements ControllerEngine {
         var libDirectory = Path.of(path).toAbsolutePath();
         if (System.getProperty("os.name").toLowerCase().contains("windows")) {
             this.lib = libDirectory.resolve("libcontroller-sdl.dll");
-            this.sdl = libDirectory.resolve("SDL2.dll");
+            this.sdl = libDirectory.resolve("SDL3.dll");
         } else {
             this.lib = libDirectory.resolve("libcontroller-sdl.so");
             this.sdl = libDirectory.resolve("libsdl.so");
