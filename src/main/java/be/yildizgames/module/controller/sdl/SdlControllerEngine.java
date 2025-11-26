@@ -189,7 +189,7 @@ public class SdlControllerEngine implements ControllerEngine {
                         if (!this.controllers.containsKey(id)) {
                             var guid = getControllerGuid(id);
                             String name;
-                            if("0300fa675e040000e002000000007801".equals(guid)) {
+                            if("0300fa675e040000e002000000007801".equals(guid) || "0300ba665e040000e002000000007801".equals(guid)) {
                                 name = "8BitDo Arcade Stick Switch";
                             } else {
                                 name = getControllerName(id);
